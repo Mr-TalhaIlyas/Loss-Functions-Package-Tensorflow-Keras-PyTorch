@@ -28,7 +28,7 @@ from tensorflow import keras.backend as K
 ## Dice Loss
 The Dice coefficient, or Dice-Sørensen coefficient, is a common metric for pixel segmentation that can also be modified to act as a loss function:
 
-```
+```python
 #PyTorch
 class DiceLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
@@ -48,7 +48,7 @@ class DiceLoss(nn.Module):
         
         return 1 - dice
 ```
-```
+```python
 #Tensorflow / Keras
 def DiceLoss(targets, inputs, smooth=1e-6):
     
@@ -62,7 +62,7 @@ def DiceLoss(targets, inputs, smooth=1e-6):
 ```
 ## BCE-Dice Loss
 This loss combines Dice loss with the standard binary cross-entropy (BCE) loss that is generally the default for segmentation models. Combining the two methods allows for some diversity in the loss, while benefitting from the stability of BCE. The equation for multi-class BCE by itself will be familiar to anyone who has studied logistic regression:
-```
+```python
 #PyTorch
 class DiceBCELoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
@@ -84,7 +84,7 @@ class DiceBCELoss(nn.Module):
         
         return Dice_BCE
 ```
-```
+```python
 class DiceLossMulticlass(nn.Module):
     def __init__(self, weights=None, size_average=False):
         super(mIoULoss, self).__init__()
@@ -119,7 +119,7 @@ class DiceLossMulticlass(nn.Module):
             return 1 - weights.mean()
 ```
 
-```
+```python
 #Tensorflow / Keras
 def DiceBCELoss(targets, inputs, smooth=1e-6):    
        
@@ -136,7 +136,7 @@ def DiceBCELoss(targets, inputs, smooth=1e-6):
 ```
 ### Weighted BCE and Dice Loss
 Combines BCE and Dice loss
-```
+```python
 # Keras/ Tensorflow
 def weighted_bce_loss(y_true, y_pred, weight):
     # avoiding overflow
@@ -185,7 +185,7 @@ def Weighted_BCEnDice_loss(y_true, y_pred):
 ```
 ## HED Loss
 I was introduced in holistic edge detector to detct edges/boundaries of objects in https://arxiv.org/pdf/1504.06375.pdf.
-```
+```python
 # Keras/ Tensorflow
 def HED_loss(y_true, y_pred):
     
@@ -239,7 +239,7 @@ The IoU metric, or Jaccard Index, is similar to the Dice metric and is calculate
 
 Like the Dice metric, it is a common means of evaluating the performance of pixel segmentation models.
 
-```
+```python
 #PyTorch
 class IoULoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
@@ -264,7 +264,7 @@ class IoULoss(nn.Module):
                 
         return 1 - IoU
 ```
-```
+```python
 #Keras
 def IoULoss(targets, inputs, smooth=1e-6):
     
@@ -283,7 +283,7 @@ def IoULoss(targets, inputs, smooth=1e-6):
 ## Focal Loss
 Focal Loss was introduced by Lin et al of Facebook AI Research in 2017 as a means of combatting extremely imbalanced datasets where positive cases were relatively rare. Their paper "Focal Loss for Dense Object Detection" is retrievable here: https://arxiv.org/abs/1708.02002. In practice, the researchers used an alpha-modified version of the function so I have included it in this implementation.
 
-```
+```python
 #PyTorch
 ALPHA = 0.8
 GAMMA = 2
@@ -309,7 +309,7 @@ class FocalLoss(nn.Module):
         return focal_loss
 ```
  
-```
+```python
 #Keras
 ALPHA = 0.8
 GAMMA = 2
@@ -330,7 +330,7 @@ This loss was introduced in "Tversky loss function for image segmentationusing 3
 **... in the case of α=β=0.5 the Tversky index simplifies to be the same as the Dice coefficient, which is also equal to the F1 score. With α=β=1, Equation 2 produces Tanimoto coefficient, and setting α+β=1 produces the set of Fβ scores. Larger βs weigh recall higher than precision (by placing more emphasis on false negatives).**
 To summarise, this loss function is weighted by the constants 'alpha' and 'beta' that penalise false positives and false negatives respectively to a higher degree in the loss function as their value is increased. The beta constant in particular has applications in situations where models can obtain misleadingly positive performance via highly conservative prediction. You may want to experiment with different values to find the optimum. With alpha==beta==0.5, this loss becomes equivalent to Dice Loss.
 
-```
+```python
 #PyTorch
 ALPHA = 0.5
 BETA = 0.5
@@ -358,7 +358,7 @@ class TverskyLoss(nn.Module):
         return 1 - Tversky
 ```
 
-```
+```python
 #Keras
 ALPHA = 0.5
 BETA = 0.5
@@ -382,7 +382,7 @@ def TverskyLoss(targets, inputs, alpha=ALPHA, beta=BETA, smooth=1e-6):
 ## Focal Tversky Loss
 
 A variant on the Tversky loss that also includes the gamma modifier from Focal Loss.
-```
+```python
 #PyTorch
 ALPHA = 0.5
 BETA = 0.5
@@ -412,7 +412,7 @@ class FocalTverskyLoss(nn.Module):
         return FocalTversky
 ```
 
-```
+```python
 ALPHA = 0.5
 BETA = 0.5
 GAMMA = 1
@@ -444,7 +444,7 @@ In this kernel I have implemented the flat variant that uses reshaped rank-1 ten
 
 I have hidden the researchers' own code below for brevity; simply load it into your kernel for the losses to function. In the case of their tensorflow implementation, I am still working to make it compatible with Keras. There are differences between the Tensorflow and Keras function libraries that complicate this.
 
-```
+```python
 #PyTorch
 class LovaszHingeLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
@@ -456,7 +456,7 @@ class LovaszHingeLoss(nn.Module):
         return Lovasz
 ```
 
-```
+```python
 #Keras
 # not working yet
 # def LovaszHingeLoss(inputs, targets):
@@ -466,7 +466,7 @@ class LovaszHingeLoss(nn.Module):
 ## Combo Loss
 This loss was introduced by Taghanaki et al in their paper "Combo loss: Handling input and output imbalance in multi-organ segmentation", retrievable here: https://arxiv.org/abs/1805.02798. Combo loss is a combination of Dice Loss and a modified Cross-Entropy function that, like Tversky loss, has additional constants which penalise either false positives or false negatives more respectively.
 
-```
+```python
 #PyTorch
 ALPHA = 0.5 # < 0.5 penalises FP more, > 0.5 penalises FN more
 CE_RATIO = 0.5 #weighted contribution of modified CE loss compared to Dice loss
@@ -493,7 +493,7 @@ class ComboLoss(nn.Module):
         return combo
  ```
  
- ```
+ ```python
  #Keras
 ALPHA = 0.5 # < 0.5 penalises FP more, > 0.5 penalises FN more
 CE_RATIO = 0.5 #weighted contribution of modified CE loss compared to Dice loss
