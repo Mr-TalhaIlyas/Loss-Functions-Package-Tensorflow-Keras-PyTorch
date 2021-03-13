@@ -10,7 +10,7 @@ I have provided the implementations in three popular libraries i.e. `tensorflow`
 These functions cannot simply be written in NumPy, as they must operate on tensors that also have gradient parameters which need to be calculated throughout the model during backpropagation. According, loss functions must be written using backend functions from the respective model library.
 
 With multi-class classification or segmentation, we sometimes use loss functions that calculate the average loss for each class, rather than calculating loss from the prediction tensor as a whole. This kernel is meant as a template reference for the basic code, so all examples calculate loss on the entire tensor, but it should be trivial for you to modify it for multi-class averaging.
-### Necessary Import
+## Necessary Imports
 You can import some necessary packages as follows
 ```python
 # PyTorch
@@ -134,7 +134,106 @@ def DiceBCELoss(targets, inputs, smooth=1e-6):
     
     return Dice_BCE
 ```
+### Weighted BCE and Dice Loss
+Combines BCE and Dice loss
+```
+# Keras/ Tensorflow
+def weighted_bce_loss(y_true, y_pred, weight):
+    # avoiding overflow
+    epsilon = 1e-7
+    y_pred = K.clip(y_pred, epsilon, 1. - epsilon)
+    logit_y_pred = K.log(y_pred / (1. - y_pred))
+    #logit_y_pred = y_pred
+    
+    loss = (1. - y_true) * logit_y_pred + (1. + (weight - 1.) * y_true) * \
+    (K.log(1. + K.exp(-K.abs(logit_y_pred))) + K.maximum(-logit_y_pred, 0.))
+    return K.sum(loss) / K.sum(weight)
 
+def weighted_dice_loss(y_true, y_pred, weight):
+    smooth = 1.
+    w, m1, m2 = weight * weight, y_true, y_pred
+    intersection = (m1 * m2)
+    score = (2. * K.sum(w * intersection) + smooth) / (K.sum(w * (m1**2)) + K.sum(w * (m2**2)) + smooth) # Uptill here is Dice Loss with squared
+    loss = 1. - K.sum(score)  #Soft Dice Loss
+    return loss
+
+def Weighted_BCEnDice_loss(y_true, y_pred):
+    
+    if y_pred.shape[-1] <= 1:
+        y_pred = tf.keras.activations.sigmoid(y_pred)
+        #y_true = y_true[:,:,:,0:1]
+    elif y_pred.shape[-1] >= 2:
+       y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+       y_true = K.squeeze(y_true, 3)
+       y_true = tf.cast(y_true, "int32")
+       y_true = tf.one_hot(y_true, num_class, axis=-1)
+       
+   
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
+    # if we want to get same size of output, kernel size must be odd number
+    averaged_mask = K.pool2d(
+            y_true, pool_size=(11, 11), strides=(1, 1), padding='same', pool_mode='avg')
+    border = K.cast(K.greater(averaged_mask, 0.005), 'float32') * K.cast(K.less(averaged_mask, 0.995), 'float32')
+    weight = K.ones_like(averaged_mask)
+    w0 = K.sum(weight)
+    weight += border * 2
+    w1 = K.sum(weight)
+    weight *= (w0 / w1)
+    loss =  weighted_dice_loss(y_true, y_pred, weight) + weighted_bce_loss(y_true, y_pred, weight) 
+    return loss
+```
+## HED Loss
+I was introduced in holistic edge detector to detct edges/boundaries of objects in https://arxiv.org/pdf/1504.06375.pdf.
+```
+# Keras/ Tensorflow
+def HED_loss(y_true, y_pred):
+    
+    #y_true = y_true * 255#(num_class + 1)  
+    if y_pred.shape[-1] <= 1:
+        y_true = y_true[:,:,:,0:1]
+    elif y_pred.shape[-1] >= 2:
+        y_true = K.squeeze(y_true, 3)
+        y_true = tf.cast(y_true, "int32")
+        y_true = tf.one_hot(y_true, num_class, axis=-1)
+        
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
+    
+    loss = sigmoid_cross_entropy_balanced(y_pred, y_true) 
+    return loss
+
+def sigmoid_cross_entropy_balanced(logits, label, name='cross_entropy_loss'):
+    """
+    From:
+
+	https://github.com/moabitcoin/holy-edge/blob/master/hed/losses.py
+
+    Implements Equation [2] in https://arxiv.org/pdf/1504.06375.pdf
+    Compute edge pixels for each training sample and set as pos_weights to
+    tf.nn.weighted_cross_entropy_with_logits
+    """
+    y = tf.cast(label, tf.float32)
+
+    count_neg = tf.reduce_sum(1. - y)
+    count_pos = tf.reduce_sum(y)
+
+    # Equation [2]
+    beta = count_neg / (count_neg + count_pos)
+
+    # Equation [2] divide by 1 - beta
+    pos_weight = beta / (1 - beta)
+    if int(str(tf.__version__)[0]) == 1:
+        cost = tf.nn.weighted_cross_entropy_with_logits(logits=logits, targets=y, pos_weight=pos_weight)
+    if int(str(tf.__version__)[0]) == 2:
+        cost = tf.nn.weighted_cross_entropy_with_logits(logits=logits, labels=y, pos_weight=pos_weight)
+
+    # Multiply by 1 - beta
+    cost = tf.reduce_mean(cost * (1 - beta))
+
+    # check if image has no edge pixels return 0 else return complete error function
+    return tf.where(tf.equal(count_pos, 0.0), 0.0, cost, name=name)
+```
 ## Jaccard/Intersection over Union (IoU) Loss
 The IoU metric, or Jaccard Index, is similar to the Dice metric and is calculated as the ratio between the overlap of the positive instances between two sets, and their mutual combined values:
 
