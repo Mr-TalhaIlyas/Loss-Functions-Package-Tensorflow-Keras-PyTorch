@@ -50,12 +50,28 @@ class DiceLoss(nn.Module):
         return 1 - dice
 ```
 ```python
-#Tensorflow / Keras
-def DiceLoss(targets, inputs, smooth=1e-6):
+def DiceLoss(y_true, y_pred, smooth=1e-6):
+    
+    # if you are using this loss for multi-class segmentation then uncomment 
+    # following lines
+    # if y_pred.shape[-1] <= 1:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.sigmoid(y_pred)
+    # elif y_pred.shape[-1] >= 2:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+    #     # convert the tensor to one-hot for multi-class segmentation
+    #     y_true = K.squeeze(y_true, 3)
+    #     y_true = tf.cast(y_true, "int32")
+    #     y_true = tf.one_hot(y_true, num_class, axis=-1)
+    
+    # cast to float32 datatype
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
     
     #flatten label and prediction tensors
-    inputs = K.flatten(inputs)
-    targets = K.flatten(targets)
+    inputs = K.flatten(y_pred)
+    targets = K.flatten(y_true)
     
     intersection = K.sum(K.dot(targets, inputs))
     dice = (2*intersection + smooth) / (K.sum(targets) + K.sum(inputs) + smooth)
@@ -122,11 +138,28 @@ class DiceLossMulticlass(nn.Module):
 
 ```python
 #Tensorflow / Keras
-def DiceBCELoss(targets, inputs, smooth=1e-6):    
-       
+def DiceBCELoss(y_true, y_pred, smooth=1e-6):    
+    
+    # if you are using this loss for multi-class segmentation then uncomment 
+    # following lines
+    # if y_pred.shape[-1] <= 1:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.sigmoid(y_pred)
+    # elif y_pred.shape[-1] >= 2:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+    #     # convert the tensor to one-hot for multi-class segmentation
+    #     y_true = K.squeeze(y_true, 3)
+    #     y_true = tf.cast(y_true, "int32")
+    #     y_true = tf.one_hot(y_true, num_class, axis=-1)
+    
+    # cast to float32 datatype
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
+    
     #flatten label and prediction tensors
-    inputs = K.flatten(inputs)
-    targets = K.flatten(targets)
+    inputs = K.flatten(y_pred)
+    targets = K.flatten(y_true)
     
     BCE =  binary_crossentropy(targets, inputs)
     intersection = K.sum(K.dot(targets, inputs))    
@@ -139,6 +172,36 @@ def DiceBCELoss(targets, inputs, smooth=1e-6):
 Combines BCE and Dice loss
 ```python
 # Keras/ Tensorflow
+def Weighted_BCEnDice_loss(y_true, y_pred):
+    
+    # if you are using this loss for multi-class segmentation then uncomment 
+    # following lines
+    # if y_pred.shape[-1] <= 1:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.sigmoid(y_pred)
+    # elif y_pred.shape[-1] >= 2:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+    #     # convert the tensor to one-hot for multi-class segmentation
+    #     y_true = K.squeeze(y_true, 3)
+    #     y_true = tf.cast(y_true, "int32")
+    #     y_true = tf.one_hot(y_true, num_class, axis=-1)
+       
+   
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
+    # if we want to get same size of output, kernel size must be odd number
+    averaged_mask = K.pool2d(
+            y_true, pool_size=(11, 11), strides=(1, 1), padding='same', pool_mode='avg')
+    border = K.cast(K.greater(averaged_mask, 0.005), 'float32') * K.cast(K.less(averaged_mask, 0.995), 'float32')
+    weight = K.ones_like(averaged_mask)
+    w0 = K.sum(weight)
+    weight += border * 2
+    w1 = K.sum(weight)
+    weight *= (w0 / w1)
+    loss =  weighted_dice_loss(y_true, y_pred, weight) + weighted_bce_loss(y_true, y_pred, weight) 
+    return loss
+    
 def weighted_bce_loss(y_true, y_pred, weight):
     # avoiding overflow
     epsilon = 1e-7
@@ -157,40 +220,14 @@ def weighted_dice_loss(y_true, y_pred, weight):
     score = (2. * K.sum(w * intersection) + smooth) / (K.sum(w * (m1**2)) + K.sum(w * (m2**2)) + smooth) # Uptill here is Dice Loss with squared
     loss = 1. - K.sum(score)  #Soft Dice Loss
     return loss
-
-def Weighted_BCEnDice_loss(y_true, y_pred):
-    
-    if y_pred.shape[-1] <= 1:
-        y_pred = tf.keras.activations.sigmoid(y_pred)
-        #y_true = y_true[:,:,:,0:1]
-    elif y_pred.shape[-1] >= 2:
-       y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
-       y_true = K.squeeze(y_true, 3)
-       y_true = tf.cast(y_true, "int32")
-       y_true = tf.one_hot(y_true, num_class, axis=-1)
-       
-   
-    y_true = K.cast(y_true, 'float32')
-    y_pred = K.cast(y_pred, 'float32')
-    # if we want to get same size of output, kernel size must be odd number
-    averaged_mask = K.pool2d(
-            y_true, pool_size=(11, 11), strides=(1, 1), padding='same', pool_mode='avg')
-    border = K.cast(K.greater(averaged_mask, 0.005), 'float32') * K.cast(K.less(averaged_mask, 0.995), 'float32')
-    weight = K.ones_like(averaged_mask)
-    w0 = K.sum(weight)
-    weight += border * 2
-    w1 = K.sum(weight)
-    weight *= (w0 / w1)
-    loss =  weighted_dice_loss(y_true, y_pred, weight) + weighted_bce_loss(y_true, y_pred, weight) 
-    return loss
 ```
 ## HED Loss
-I was introduced in holistic edge detector to detct edges/boundaries of objects in https://arxiv.org/pdf/1504.06375.pdf.
+I was introduced in holistic edge detector to detect edges/boundaries of objects in https://arxiv.org/pdf/1504.06375.pdf.
 ```python
 # Keras/ Tensorflow
 def HED_loss(y_true, y_pred):
     
-    #y_true = y_true * 255#(num_class + 1)  
+    #y_true = y_true * 255 # b/c keras generator normalizes images
     if y_pred.shape[-1] <= 1:
         y_true = y_true[:,:,:,0:1]
     elif y_pred.shape[-1] >= 2:
@@ -266,12 +303,29 @@ class IoULoss(nn.Module):
         return 1 - IoU
 ```
 ```python
-#Keras
-def IoULoss(targets, inputs, smooth=1e-6):
+#Tensorflow / Keras 
+def IoULoss(y_true, y_pred, smooth=1e-6):
+    
+    # if you are using this loss for multi-class segmentation then uncomment 
+    # following lines
+    # if y_pred.shape[-1] <= 1:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.sigmoid(y_pred)
+    # elif y_pred.shape[-1] >= 2:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+    #     # convert the tensor to one-hot for multi-class segmentation
+    #     y_true = K.squeeze(y_true, 3)
+    #     y_true = tf.cast(y_true, "int32")
+    #     y_true = tf.one_hot(y_true, num_class, axis=-1)
+    
+    # cast to float32 datatype
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
     
     #flatten label and prediction tensors
-    inputs = K.flatten(inputs)
-    targets = K.flatten(targets)
+    inputs = K.flatten(y_pred)
+    targets = K.flatten(y_true)
     
     intersection = K.sum(K.dot(targets, inputs))
     total = K.sum(targets) + K.sum(inputs)
@@ -311,11 +365,28 @@ class FocalLoss(nn.Module):
 ```
  
 ```python
-#Keras
-ALPHA = 0.8
-GAMMA = 2
+#Tensorflow / Keras
 
-def FocalLoss(targets, inputs, alpha=ALPHA, gamma=GAMMA):    
+def FocalLoss(y_true, y_pred):   
+    
+    alpha = 0.8
+    gamma = 2
+    # if you are using this loss for multi-class segmentation then uncomment 
+    # following lines
+    # if y_pred.shape[-1] <= 1:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.sigmoid(y_pred)
+    # elif y_pred.shape[-1] >= 2:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+    #     # convert the tensor to one-hot for multi-class segmentation
+    #     y_true = K.squeeze(y_true, 3)
+    #     y_true = tf.cast(y_true, "int32")
+    #     y_true = tf.one_hot(y_true, num_class, axis=-1)
+    
+    # cast to float32 datatype
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
     
     inputs = K.flatten(inputs)
     targets = K.flatten(targets)
@@ -360,15 +431,29 @@ class TverskyLoss(nn.Module):
 ```
 
 ```python
-#Keras
-ALPHA = 0.5
-BETA = 0.5
-
-def TverskyLoss(targets, inputs, alpha=ALPHA, beta=BETA, smooth=1e-6):
-        
+#Tensorflow / Keras
+def TverskyLoss(y_true, y_pred, smooth=1e-6):
+    
+        if y_pred.shape[-1] <= 1:
+            alpha = 0.3
+            beta = 0.7
+            gamma = 4/3 #5.
+            y_pred = tf.keras.activations.sigmoid(y_pred)
+            #y_true = y_true[:,:,:,0:1]
+        elif y_pred.shape[-1] >= 2:
+            alpha = 0.3
+            beta = 0.7
+            gamma = 4/3 #3.
+            y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+            y_true = K.squeeze(y_true, 3)
+            y_true = tf.cast(y_true, "int32")
+            y_true = tf.one_hot(y_true, num_class, axis=-1)
+           
+        y_true = K.cast(y_true, 'float32')
+        y_pred = K.cast(y_pred, 'float32')
         #flatten label and prediction tensors
-        inputs = K.flatten(inputs)
-        targets = K.flatten(targets)
+        inputs = K.flatten(y_pred)
+        targets = K.flatten(y_true)
         
         #True Positives, False Positives & False Negatives
         TP = K.sum((inputs * targets))
@@ -414,15 +499,31 @@ class FocalTverskyLoss(nn.Module):
 ```
 
 ```python
-ALPHA = 0.5
-BETA = 0.5
-GAMMA = 1
+#Tensorflow / Keras
+def FocalTverskyLoss(y_true, y_pred, smooth=1e-6):
+        
 
-def FocalTverskyLoss(targets, inputs, alpha=ALPHA, beta=BETA, gamma=GAMMA, smooth=1e-6):
-    
+        if y_pred.shape[-1] <= 1:
+            alpha = 0.3
+            beta = 0.7
+            gamma = 4/3 #5.
+            y_pred = tf.keras.activations.sigmoid(y_pred)
+            #y_true = y_true[:,:,:,0:1]
+        elif y_pred.shape[-1] >= 2:
+            alpha = 0.3
+            beta = 0.7
+            gamma = 4/3 #3.
+            y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+            y_true = K.squeeze(y_true, 3)
+            y_true = tf.cast(y_true, "int32")
+            y_true = tf.one_hot(y_true, num_class, axis=-1)
+        
+        
+        y_true = K.cast(y_true, 'float32')
+        y_pred = K.cast(y_pred, 'float32')
         #flatten label and prediction tensors
-        inputs = K.flatten(inputs)
-        targets = K.flatten(targets)
+        inputs = K.flatten(y_pred)
+        targets = K.flatten(y_true)
         
         #True Positives, False Positives & False Negatives
         TP = K.sum((inputs * targets))
@@ -495,13 +596,31 @@ class ComboLoss(nn.Module):
  ```
  
  ```python
- #Keras
+#Tensorflow / Keras
 ALPHA = 0.5 # < 0.5 penalises FP more, > 0.5 penalises FN more
 CE_RATIO = 0.5 #weighted contribution of modified CE loss compared to Dice loss
 
-def Combo_loss(targets, inputs):
-    targets = K.flatten(targets)
-    inputs = K.flatten(inputs)
+def Combo_loss(y_true, y_pred):
+    
+    # if you are using this loss for multi-class segmentation then uncomment 
+    # following lines
+    # if y_pred.shape[-1] <= 1:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.sigmoid(y_pred)
+    # elif y_pred.shape[-1] >= 2:
+    #     # activate logits
+    #     y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+    #     # convert the tensor to one-hot for multi-class segmentation
+    #     y_true = K.squeeze(y_true, 3)
+    #     y_true = tf.cast(y_true, "int32")
+    #     y_true = tf.one_hot(y_true, num_class, axis=-1)
+    
+    # cast to float32 datatype
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
+    
+    targets = K.flatten(y_true)
+    inputs = K.flatten(y_pred)
     
     intersection = K.sum(targets * inputs)
     dice = (2. * intersection + smooth) / (K.sum(targets) + K.sum(inputs) + smooth)
