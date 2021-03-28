@@ -645,4 +645,4 @@ def Combo_loss(y_true, y_pred):
 
 #### Refernces
 
-[RNA Kaggle](https://discuss.pytorch.org/t/some-problems-in-custom-loss-functions-and-so-on/36618)
+[RNA Kaggle](https://www.kaggle.com/bigironsphere/loss-function-library-keras-pytorch)
