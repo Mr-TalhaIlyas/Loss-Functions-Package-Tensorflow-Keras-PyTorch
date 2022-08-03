@@ -12,6 +12,7 @@ These functions cannot simply be written in NumPy, as they must operate on tenso
 
 With multi-class classification or segmentation, we sometimes use loss functions that calculate the average loss for each class, rather than calculating loss from the prediction tensor as a whole. This kernel is meant as a template reference for the basic code, so all examples calculate loss on the entire tensor, but it should be trivial for you to modify it for multi-class averaging.
 #### For [Learning-Rate-Schedulers-Packege-Tensorflow-PyTorch-Keras](https://github.com/Mr-TalhaIlyas/Learning-Rate-Schedulers-Packege-Tensorflow-PyTorch-Keras)
+#### For [Evaluation-Metrics-Package-Tensorflow-PyTorch-Keras](https://github.com/Mr-TalhaIlyas/Evaluation-Metrics-Package-Tensorflow-PyTorch-Keras/)
 ## Necessary Imports
 You can import some necessary packages as follows
 ```python
