@@ -399,6 +399,41 @@ def FocalLoss(y_true, y_pred):
     
     return focal_loss
 ```
+## Weighted Focal Loss
+*in developement*
+```python
+# TensorFlow/Keras
+lass WFL():
+    '''
+    Weighted Focal loss
+    '''
+    def __init__(self, alpha=0.25, gamma=2, class_weights=None, from_logits=False):
+        self.class_weights = class_weights
+        self.from_logits = from_logits
+        self.alpha = alpha
+        self.gamma = gamma
+        
+    def __call__(self, y_true, y_pred):
+        
+        if self.from_logits:
+            y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+
+        y_pred = K.clip(y_pred, K.epsilon(), 1. - K.epsilon())
+        
+        # cast to float32 datatype
+        y_true = K.cast(y_true, 'float32')
+        y_pred = K.cast(y_pred, 'float32')
+        
+        WCCE = y_true * K.log(y_pred) * self.class_weights
+        WFL = (self.alpha * K.pow((1-y_pred), self.gamma)) * WCCE
+        # reduce sum -> reduces the loss over number of batches by simply taking sum over all samples
+        # reduce mean -> reduces the loss ove number of batches by taking mean of all samples
+        # if axis=-1 is given input batch is like B * C then loss will have shape B * 1
+        # if axis is None then only 1 scaler value is output
+        
+        return -tf.math.reduce_sum(WFL, -1) #use this for custom training loop and dviding by global batch size. * (1/GB)
+        #return -tf.reduce_mean(WFL, -1) # use this for complie fit keras API
+```
 ## Tversky Loss
 This loss was introduced in "Tversky loss function for image segmentationusing 3D fully convolutional deep networks", retrievable here: https://arxiv.org/abs/1706.05721. It was designed to optimise segmentation on imbalanced medical datasets by utilising constants that can adjust how harshly different types of error are penalised in the loss function. From the paper:
 **... in the case of α=β=0.5 the Tversky index simplifies to be the same as the Dice coefficient, which is also equal to the F1 score. With α=β=1, Equation 2 produces Tanimoto coefficient, and setting α+β=1 produces the set of Fβ scores. Larger βs weigh recall higher than precision (by placing more emphasis on false negatives).**
