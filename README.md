@@ -429,7 +429,7 @@ def FocalLoss(y_true, y_pred):
 *in developement*
 ```python
 # TensorFlow/Keras
-lass WFL():
+class WFL():
     '''
     Weighted Focal loss
     '''
