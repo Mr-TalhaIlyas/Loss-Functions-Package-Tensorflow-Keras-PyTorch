@@ -59,6 +59,7 @@ def weighted_categorical_crossentropy(weights):
     return loss
 ```
 Or you can check the `weighted focal loss` below and set the `gamma=0` and `alpha=1` and it'll work same as `weighted catagorical cross entropy`
+
 ## Dice Loss
 The Dice coefficient, or Dice-Sørensen coefficient, is a common metric for pixel segmentation that can also be modified to act as a loss function:
 
