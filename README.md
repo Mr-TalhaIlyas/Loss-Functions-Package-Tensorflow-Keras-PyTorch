@@ -42,7 +42,8 @@ def weighted_categorical_crossentropy(weights):
         
     def loss(y_true, y_pred, from_logits=False):
         if from_logits:
-        	y_pred /= K.sum(y_pred, axis=-1, keepdims=True)
+		y_pred = tf.keras.activations.softmax(y_pred, axis=-1)
+        	#y_pred /= K.sum(y_pred, axis=-1, keepdims=True)
         # clip to prevent NaN's and Inf's
         y_pred = K.clip(y_pred, K.epsilon(), 1 - K.epsilon())
         # calc
